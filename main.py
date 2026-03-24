@@ -19,11 +19,20 @@ app = FastAPI(
     version = "1.0.0"
 )
 
-api_key = os.getenv("Google_API_KEY")
+# service_account_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "./service_account_key.json")
+
+# if not os.path.exists(service_account_path):
+#     raise ValueError(f"Service account file not found: {service_account_path}")
+
+# agent = BusinessIdeaValidatorAgent(service_account_path=service_account_path)
+
+api_key = os.getenv("API_KEY")
 if not api_key:
-    logger.error("Google API Key not found in the environment.")
+    logger.info("API_KEY not found in environment variables")
+    raise ValueError("API_KEY not found in environment variables")
 
 agent = BusinessIdeaValidatorAgent(api_key=api_key)
+
 
 @app.get("/health")
 async def health_check():
@@ -38,7 +47,7 @@ async def health_check():
             "Error": str(e)
         })
 
-app.post("/validate", response_model = ValidationResponse)
+@app.post("/validate", response_model = ValidationResponse)
 def validate_business_idea(request: BusinessIdeaInput) ->ValidationResponse:
     try:
         validation_result =agent.validate_idea(request.idea)

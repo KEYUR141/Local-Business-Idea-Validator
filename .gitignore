@@ -5,3 +5,6 @@ __pycache__/
 venv/
 .vscode/
 .idea/
+
+service_account_key.json
+*_key.json
