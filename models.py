@@ -23,6 +23,11 @@ class ValidationResponse(BaseModel):
         
     )
 
+    verdict: str = Field(
+        ...,
+        description = """A clear and concise verdict on the viability of the business idea, such as 'Viable', 'Not Viable', or 'Needs Improvement', based on the analysis of the business idea."""
+    )
+
     market: str = Field(
         ...,
         description = """A brief analysis of the market demand for the business idea, including potential customer segments and trends."""
@@ -31,6 +36,11 @@ class ValidationResponse(BaseModel):
     risk: str = Field(
         ...,
         description = """An assessment of the potential risks and challenges associated with the business idea, including competition, regulatory issues, and operational challenges."""
+    )
+
+    opportunities: str = Field(
+        ...,    
+        description = """An analysis of the potential opportunities and advantages of the business idea, such as unique value propositions, market gaps, or emerging trends."""
     )
 
     competition: str = Field(

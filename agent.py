@@ -116,9 +116,11 @@ BUSINESS IDEA: {idea}
 
 Return your analysis as a valid JSON object with EXACTLY these fields:
 {{
-  "score": <number between 0.0 and 10.0>,
+  "score": <number between 0.0 and 10.0>(The Score can be in decimal to provide a good statistics),
+  "verdict": "<Options: 'Strong', 'Promising', 'Risky', 'Needs Work', 'Avoid'>",
   "market": "<specific target market description, 1-2 sentences>",
   "risk": "<single most critical risk or challenge, 1-2 sentences>",
+  "opportunities": "<potential opportunities and advantages, 1-2 sentences>",
   "competition": "<honest competitive landscape assessment, 1-2 sentences>",
   "first_step": "<concrete, actionable first step doable this week, 1-2 sentences>",
   "summary": "<overall assessment in 2-3 plain sentences>"
