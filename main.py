@@ -3,7 +3,6 @@ import logging
 import uuid
 import json
 from pathlib import Path
-from aiohttp import request
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse, FileResponse
