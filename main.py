@@ -1,6 +1,7 @@
 import os 
 import logging 
 import uuid
+import json
 from pathlib import Path
 from aiohttp import request
 from dotenv import load_dotenv
@@ -10,7 +11,8 @@ from fastapi.staticfiles import StaticFiles
 from models import ValidationResponse, BusinessIdeaInput
 from fastapi.middleware.cors import CORSMiddleware
 from agent import BusinessIdeaValidatorAgent
-from redis_client import RedisConversationManager
+# from redis_client import RedisConversationManager
+from memory import InMemoryConversationManager as ConversationManager
 load_dotenv()
 
 
@@ -42,11 +44,11 @@ else:
 
 
 try:
-    redis_manager = RedisConversationManager()
-    logger.info("Redis Conversation Manager initialized successfully.")
+    conversation_manager = ConversationManager()
+    logger.info("Conversation Manager initialized successfully.")
 except Exception as e:
-    logger.error(f"Failed to initialize Redis Conversation Manager: {e}")
-    redis_manager = None
+    logger.error(f"Failed to initialize Conversation Manager: {e}")
+    conversation_manager = None
 
 
 
@@ -62,10 +64,10 @@ agent = BusinessIdeaValidatorAgent(api_key=api_key)
 @app.get("/health")
 async def health_check():
     try:
-        redis_status = "Connected" if redis_manager else "Not Connected"
+        conversation_status = "Connected" if conversation_manager else "Not Connected"
         return JSONResponse({
             "status":"healthy",
-            "redis_status": redis_status
+            "conversation_status": conversation_status
         })
     except Exception as e:
         logger.error(f"Health Check Failed: {e}")
@@ -94,12 +96,12 @@ def validate_business_idea(request: BusinessIdeaInput) ->ValidationResponse:
 @app.post("/conversation/start")
 async def start_conversation():
 
-    if not redis_manager:
-        raise HTTPException(status_code = 500, detail="Redis Conversation Manager not available")
+    if not conversation_manager:
+        raise HTTPException(status_code = 500, detail="Conversation Manager not available")
     
     try:
         conversation_id = str(uuid.uuid4())
-        redis_manager.create_conversation(conversation_id)
+        conversation_manager.create_conversation(conversation_id)
         logger.info(f"Started new conversation with ID: {conversation_id}")
 
         return JSONResponse({
@@ -113,11 +115,11 @@ async def start_conversation():
 
 @app.get("/conversations")
 async def list_conversations():
-    if not redis_manager:
-        raise HTTPException(status_code=500, detail="Redis Conversation Manager not available")
+    if not conversation_manager:
+        raise HTTPException(status_code=500, detail="Conversation Manager not available")
     
     try:
-        conversations = redis_manager.get_all_conversations()
+        conversations = conversation_manager.get_all_conversations()
         return JSONResponse({
             "conversations": conversations
         })
@@ -128,20 +130,35 @@ async def list_conversations():
 
 @app.post("/chat/message", response_model = ValidationResponse)
 async def chat_message(request: BusinessIdeaInput) -> ValidationResponse:
-    if not redis_manager:
-        raise HTTPException(status_code=500, detail="Redis Conversation Manager not available")
+    if not conversation_manager:
+        raise HTTPException(status_code=500, detail="Conversation Manager not available")
 
     
     if not request.conversation_id:
         raise HTTPException(status_code=400, detail="Conversation ID is required for chat messages")
     
     try:
-        if not redis_manager.conversation_exists(request.conversation_id):
+        if not conversation_manager.conversation_exists(request.conversation_id):
             raise HTTPException(status_code=404, detail="Conversation not found")
         
         logger.info(f"Chat message in {request.conversation_id[:8]}...: {request.idea[:50]}...")
 
+        # Store user message
+        conversation_manager.add_message(request.conversation_id, "user", request.idea)
+
         validated_result = agent.validate_idea(idea=request.idea, conversation_id = request.conversation_id)
+
+        # Store validation result
+        conversation_manager.add_message(request.conversation_id, "assistant", json.dumps({
+            "score": validated_result.score,
+            "verdict": validated_result.verdict,
+            "market": validated_result.market,
+            "risk": validated_result.risk,
+            "opportunities": validated_result.opportunities,
+            "competition": validated_result.competition,
+            "first_step": validated_result.first_step,
+            "summary": validated_result.summary
+        }))
 
         logger.info(f"Chat message processed. Score: {validated_result.score}")
         return validated_result
@@ -151,17 +168,38 @@ async def chat_message(request: BusinessIdeaInput) -> ValidationResponse:
         logger.error(f"Chat message processing failed: {e}")
         raise HTTPException(status_code=500, detail="Failed to process chat message")
 
+@app.delete("/conversation/{conversation_id}")
+async def delete_converstion(conversation_id:str):
+    try:
+        if not conversation_manager:
+            raise HTTPException(status_code=500, detail="Conversation Manager not available")
+        
+        if not conversation_manager.conversation_exists(conversation_id):
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        
+        conversation_manager.delete_conversation(conversation_id)
+        logger.info(f"Deleted conversation with ID: {conversation_id}")
+        return JSONResponse({
+            "Conversation_Id": conversation_id,
+            "Status": "Deleted"
+        })
+    
+    except HTTPException as e:
+        logger.error(f"Failed to delete conversation: {e}")
+        raise HTTPException(status_code=e.status_code, detail="Failed to delete conversation")
+
+
 @app.get("/chat/history/{conversation_id}")
 async def get_chat_history(conversation_id:str):
 
-    if not redis_manager:
-        raise HTTPException(status_code=500, detail="Redis Conversation Manager not available")
+    if not conversation_manager:
+        raise HTTPException(status_code=500, detail="Conversation Manager not available")
     
     try:
-        if not redis_manager.conversation_exists(conversation_id):
+        if not conversation_manager.conversation_exists(conversation_id):
             raise HTTPException(status_code=404, detail="Conversation not found")
         
-        history = redis_manager.get_full_history(conversation_id)
+        history = conversation_manager.get_full_history(conversation_id)
 
         return JSONResponse({
             "Conversation_Id": conversation_id,

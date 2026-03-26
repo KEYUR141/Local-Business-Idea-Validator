@@ -1,17 +1,15 @@
 version: '3.8'
 
 services:
-  # FastAPI Backend
+  # FastAPI Backend with In-Memory Storage (Cloud Run optimized)
   app:
     build: .
     ports:
       - "8000:8000"
     environment:
       - API_KEY=${API_KEY}
-      - REDIS_URL=redis://redis:6379/0
       - LOG_LEVEL=INFO
-    depends_on:
-      - redis
+      - PORT=8000
     networks:
       - business-validator-network
     healthcheck:
@@ -25,21 +23,22 @@ services:
       - ./agent.py:/app/agent.py
       - ./models.py:/app/models.py
 
-  # Redis for conversation memory
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    networks:
-      - business-validator-network
-    volumes:
-      - redis-data:/data
-    command: redis-server --appendonly yes
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
+  # Optional Redis for conversation memory (for local development with persistence)
+  # Uncomment below if you want to use Redis instead of in-memory storage
+  # redis:
+  #   image: redis:7-alpine
+  #   ports:
+  #     - "6379:6379"
+  #   networks:
+  #     - business-validator-network
+  #   volumes:
+  #     - redis-data:/data
+  #   command: redis-server --appendonly yes
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 10s
+  #     timeout: 3s
+  #     retries: 3
 
 networks:
   business-validator-network:

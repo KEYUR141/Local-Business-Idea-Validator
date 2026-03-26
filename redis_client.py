@@ -69,6 +69,18 @@ class RedisConversationManager:
             logger.error(f"Failed to check conversation existence: {e}")
             return False
     
+    def delete_conversation(self, conversation_id:str) -> bool:
+        try:
+            key = f"Conversation:{conversation_id}"
+            result = self.redis_client.delete(key)
+            if result > 0:
+                logger.info(f"Deleted conversation with ID: {conversation_id}")
+                return True
+            return False
+        except Exception as e:
+            logger.error(f"Failed to delete conversation: {e}")
+            return False
+
     def get_all_conversations(self) -> List[str]:
         try:
             keys = self.redis_client.keys("Conversation:*")

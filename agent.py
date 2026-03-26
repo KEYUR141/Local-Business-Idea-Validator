@@ -6,8 +6,8 @@ from google.auth.transport.requests import Request
 from google.oauth2.service_account import Credentials
 from models import ValidationResponse
 import google.generativeai as genai
-from redis_client import RedisConversationManager
-
+# from redis_client import RedisConversationManager
+from memory import InMemoryConversationManager as ConversationManager
 logger = logging.getLogger(__name__)
 
 
@@ -21,15 +21,15 @@ class BusinessIdeaValidatorAgent:
         # Load service account credentials
         genai.configure(api_key=api_key)
         self.model = genai.GenerativeModel("gemini-2.5-flash-lite")
-        self.redis_manager = RedisConversationManager()
+        self.conversation_manager = ConversationManager()
 
     
     def build_context_prompt(self,conversation_id:str, idea:str) -> str:
         try:
             context_str= ""
 
-            if conversation_id and self.redis_manager:
-                history = self.redis_manager.get_last_messages(conversation_id, count=8)
+            if conversation_id and self.conversation_manager:
+                history = self.conversation_manager.get_last_messages(conversation_id, count=8)
 
                 if history:
                     context_str += "Previous Conversation History:\n"
@@ -91,9 +91,9 @@ class BusinessIdeaValidatorAgent:
             data = json.loads(text.strip())
             validation = ValidationResponse(**data)
 
-            if conversation_id and self.redis_manager:
-                self.redis_manager.add_message(conversation_id, role = "user", context = idea)
-                self.redis_manager.add_message(conversation_id, role="assistant", context = validation.summary)
+            if conversation_id and self.conversation_manager:
+                self.conversation_manager.add_message(conversation_id, role = "user", context = idea)
+                self.conversation_manager.add_message(conversation_id, role="assistant", context = validation.summary)
             
             logger.info(f"Validation successful. Score: {validation.score}")
             return validation

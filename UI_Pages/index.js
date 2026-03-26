@@ -69,6 +69,10 @@ async function startNewConversation() {
 async function sendMessage(event) {
     event.preventDefault();
 
+    if (sendBtn.disabled) {
+        return;
+    }
+
     const idea = ideaInput.value.trim();
 
     if (idea.length < 10) {
@@ -104,7 +108,7 @@ async function sendMessage(event) {
         });
 
         if (!response.ok) {
-            const errorData = await response.json();
+            const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
             throw new Error(errorData.detail || 'Failed to validate idea');
         }
 
@@ -113,7 +117,7 @@ async function sendMessage(event) {
         showToast('Analysis complete', 'success');
     } catch (error) {
         console.error('Error sending message:', error);
-        showToast(`Error: ${error.message}`, 'error');
+        showToast(error.message || 'Error processing request', 'error');
     } finally {
         sendBtn.disabled = false;
         showSpinner(false);
@@ -251,9 +255,24 @@ async function loadConversations() {
         data.conversations.forEach(conversationId => {
             const item = document.createElement('div');
             item.className = 'conversation-item';
-            item.textContent = conversationId.substring(0, 8) + '...';
-            item.title = conversationId;
-            item.onclick = () => loadConversationHistory(conversationId);
+            
+            const textSpan = document.createElement('span');
+            textSpan.className = 'conversation-item-text';
+            textSpan.textContent = conversationId.substring(0, 8) + '...';
+            textSpan.title = conversationId;
+            textSpan.style.cursor = 'pointer';
+            textSpan.onclick = () => loadConversationHistory(conversationId);
+            
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'conversation-item-delete';
+            deleteBtn.textContent = 'Delete';
+            deleteBtn.onclick = (e) => {
+                e.stopPropagation();
+                deleteConversation(conversationId);
+            };
+            
+            item.appendChild(textSpan);
+            item.appendChild(deleteBtn);
             conversationsContainer.appendChild(item);
         });
     } catch (error) {
@@ -306,5 +325,43 @@ async function loadConversationHistory(conversationId) {
         console.error('Error loading conversation history:', error);
         showToast(`Error: ${error.message}`, 'error');
         showSpinner(false);
+    }
+}
+
+async function deleteConversation(conversationId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/conversation/${conversationId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to delete conversation');
+        }
+
+        showToast('Conversation deleted', 'success');
+        loadConversations();
+        
+        if (currentConversationId === conversationId) {
+            currentConversationId = null;
+            conversationIdDisplay.textContent = 'No active chat';
+            messagesContainer.innerHTML = `
+                <div class="welcome-message">
+                    <h3>Welcome</h3>
+                    <p>Describe your business idea. Analysis includes:</p>
+                    <ul>
+                        <li>Viability Score (0-10)</li>
+                        <li>Market Opportunity</li>
+                        <li>Risk Assessment</li>
+                        <li>Growth Potential</li>
+                        <li>Competitive Analysis</li>
+                        <li>Action Steps</li>
+                    </ul>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Error deleting conversation:', error);
+        showToast(`Error: ${error.message}`, 'error');
     }
 }

@@ -1,0 +1,38 @@
+steps:
+  # Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/business-idea-validator:latest'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/business-idea-validator:$SHORT_SHA'
+      - '.'
+
+  # Push the image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/business-idea-validator:latest'
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/cloud-builders/gke-deploy'
+    args:
+      - 'run'
+      - '--filename=.'
+      - '--image=gcr.io/$PROJECT_ID/business-idea-validator:latest'
+      - '--location=us-central1'
+      - '--output=/workspace/output'
+
+images:
+  - 'gcr.io/$PROJECT_ID/business-idea-validator:latest'
+  - 'gcr.io/$PROJECT_ID/business-idea-validator:$SHORT_SHA'
+
+substitutions:
+  _REGION: 'us-central1'
+  _SERVICE_NAME: 'business-idea-validator'
+
+options:
+  machineType: 'N1_HIGHCPU_8'
+
+timeout: '1800s'
