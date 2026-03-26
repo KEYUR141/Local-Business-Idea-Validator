@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Business Idea Validator</title>
+    <link rel="stylesheet" href="/static/index.css">
+</head>
+<body>
+    <div class="container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1>Validator</h1>
+            </div>
+            
+            <button class="btn-new-chat" onclick="startNewConversation()">New Chat</button>
+            
+            <div class="conversations-list">
+                <p class="conversations-label">Previous Chats</p>
+                <div id="conversations-container" class="conversations-items">
+                    <p class="no-conversations">No previous chats</p>
+                </div>
+            </div>
+            
+            <div class="conversation-info">
+                <p id="conversation-id-display" class="conversation-id">No active chat</p>
+            </div>
+            
+            <div class="sidebar-footer">
+                <p class="status" id="redis-status">Redis: Checking...</p>
+            </div>
+        </aside>
+
+        <main class="chat-container">
+            <header class="chat-header">
+                <h2>Business Idea Validator</h2>
+            </header>
+
+            <div class="messages-area" id="messages-container">
+                <div class="welcome-message">
+                    <h3>Welcome</h3>
+                    <p>Describe your business idea. Analysis includes:</p>
+                    <ul>
+                        <li>Viability Score (0-10)</li>
+                        <li>Market Opportunity</li>
+                        <li>Risk Assessment</li>
+                        <li>Growth Potential</li>
+                        <li>Competitive Analysis</li>
+                        <li>Action Steps</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="input-area">
+                <form id="chat-form" onsubmit="sendMessage(event)">
+                    <div class="input-wrapper">
+                        <textarea 
+                            id="idea-input" 
+                            placeholder="Describe your business idea (10-500 characters)"
+                            rows="3"
+                        ></textarea>
+                        <button type="submit" class="btn-send" id="send-btn">Send</button>
+                    </div>
+                </form>
+            </div>
+        </main>
+    </div>
+
+    <div id="loading-spinner" class="spinner hidden">
+        <div class="spinner-content">
+            <div class="spinner-circle"></div>
+            <p>Analyzing...</p>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script src="/static/index.js"></script>
+</body>
+</html>

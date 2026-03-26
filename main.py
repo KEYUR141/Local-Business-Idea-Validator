@@ -1,11 +1,16 @@
 import os 
 import logging 
+import uuid
+from pathlib import Path
+from aiohttp import request
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from models import ValidationResponse, BusinessIdeaInput
+from fastapi.middleware.cors import CORSMiddleware
 from agent import BusinessIdeaValidatorAgent
-
+from redis_client import RedisConversationManager
 load_dotenv()
 
 
@@ -19,12 +24,32 @@ app = FastAPI(
     version = "1.0.0"
 )
 
-# service_account_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "./service_account_key.json")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+    allow_credentials=True,
+)
 
-# if not os.path.exists(service_account_path):
-#     raise ValueError(f"Service account file not found: {service_account_path}")
+# Mount static files
+ui_path = Path(__file__).parent / "UI_Pages"
+if ui_path.exists():
+    app.mount("/static", StaticFiles(directory=str(ui_path)), name="static")
+    logger.info(f"Static files mounted from {ui_path}")
+else:
+    logger.warning(f"UI_Pages directory not found at {ui_path}")
 
-# agent = BusinessIdeaValidatorAgent(service_account_path=service_account_path)
+
+try:
+    redis_manager = RedisConversationManager()
+    logger.info("Redis Conversation Manager initialized successfully.")
+except Exception as e:
+    logger.error(f"Failed to initialize Redis Conversation Manager: {e}")
+    redis_manager = None
+
+
+
 
 api_key = os.getenv("API_KEY")
 if not api_key:
@@ -37,8 +62,10 @@ agent = BusinessIdeaValidatorAgent(api_key=api_key)
 @app.get("/health")
 async def health_check():
     try:
+        redis_status = "Connected" if redis_manager else "Not Connected"
         return JSONResponse({
-            "status":"healthy"
+            "status":"healthy",
+            "redis_status": redis_status
         })
     except Exception as e:
         logger.error(f"Health Check Failed: {e}")
@@ -50,7 +77,8 @@ async def health_check():
 @app.post("/validate", response_model = ValidationResponse)
 def validate_business_idea(request: BusinessIdeaInput) ->ValidationResponse:
     try:
-        validation_result =agent.validate_idea(request.idea)
+        validation_result =agent.validate_idea(idea = request.idea, conversation_id=request.conversation_id)
+
 
         logger.info(f"Validation Completed. Score: {validation_result.score}")
         return validation_result
@@ -63,6 +91,108 @@ def validate_business_idea(request: BusinessIdeaInput) ->ValidationResponse:
         logger.error(f"Validation Failed: {e}")
         raise HTTPException(status_code=500, detail="Failed to validate business idea")
     
+@app.post("/conversation/start")
+async def start_conversation():
+
+    if not redis_manager:
+        raise HTTPException(status_code = 500, detail="Redis Conversation Manager not available")
+    
+    try:
+        conversation_id = str(uuid.uuid4())
+        redis_manager.create_conversation(conversation_id)
+        logger.info(f"Started new conversation with ID: {conversation_id}")
+
+        return JSONResponse({
+            "Conversation_Id": conversation_id,
+            "Status": "Started"
+        })
+    
+    except Exception as e:
+        logger.error(f"Failed to start conversation: {e}")
+        raise HTTPException(status_code=500, detail="Failed to start conversation")
+
+@app.get("/conversations")
+async def list_conversations():
+    if not redis_manager:
+        raise HTTPException(status_code=500, detail="Redis Conversation Manager not available")
+    
+    try:
+        conversations = redis_manager.get_all_conversations()
+        return JSONResponse({
+            "conversations": conversations
+        })
+    
+    except Exception as e:
+        logger.error(f"Failed to list conversations: {e}")
+        raise HTTPException(status_code=500, detail="Failed to list conversations")
+
+@app.post("/chat/message", response_model = ValidationResponse)
+async def chat_message(request: BusinessIdeaInput) -> ValidationResponse:
+    if not redis_manager:
+        raise HTTPException(status_code=500, detail="Redis Conversation Manager not available")
+
+    
+    if not request.conversation_id:
+        raise HTTPException(status_code=400, detail="Conversation ID is required for chat messages")
+    
+    try:
+        if not redis_manager.conversation_exists(request.conversation_id):
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        
+        logger.info(f"Chat message in {request.conversation_id[:8]}...: {request.idea[:50]}...")
+
+        validated_result = agent.validate_idea(idea=request.idea, conversation_id = request.conversation_id)
+
+        logger.info(f"Chat message processed. Score: {validated_result.score}")
+        return validated_result
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Chat message processing failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to process chat message")
+
+@app.get("/chat/history/{conversation_id}")
+async def get_chat_history(conversation_id:str):
+
+    if not redis_manager:
+        raise HTTPException(status_code=500, detail="Redis Conversation Manager not available")
+    
+    try:
+        if not redis_manager.conversation_exists(conversation_id):
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        
+        history = redis_manager.get_full_history(conversation_id)
+
+        return JSONResponse({
+            "Conversation_Id": conversation_id,
+            "History": history
+        })
+    
+    except HTTPException as e:
+        logger.error(f"Failed to retrieve conversation history: {e}")
+        raise HTTPException(status_code=e.status_code, detail="Failed to retrieve conversation history")
+
+
+@app.get("/")
+async def root():
+    """Root endpoint - serves the UI"""
+    ui_file = Path(__file__).parent / "UI_Pages" / "index.html"
+    if ui_file.exists():
+        return FileResponse(ui_file, media_type="text/html")
+    return JSONResponse({
+        "name": "Business Idea Validator",
+        "version": "2.0.0",
+        "description": "AI-powered validation of business ideas with conversation memory",
+        "endpoints": {
+            "health": "GET /health",
+            "api_docs": "GET /docs",
+            "single_validation": "POST /validate",
+            "start_chat": "POST /conversation/start",
+            "send_message": "POST /chat/message",
+            "get_history": "GET /chat/history/{conversation_id}"
+        }
+    })
+
 
 if __name__ == "__main__":
     import uvicorn

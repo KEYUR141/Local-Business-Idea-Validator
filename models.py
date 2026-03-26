@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field
+from typing import Optional
 
 
 class BusinessIdeaInput(BaseModel):
@@ -9,8 +10,11 @@ class BusinessIdeaInput(BaseModel):
         max_length = 500,
         title = "Business Idea",
         description=" Provide a brief Description of your business idea(10-500 or more Characters)",
- 
-)
+    )
+    conversation_id: Optional[str] = Field(
+        None,  # ← Must be Optional[str] with default None
+        description="Optional conversation ID for context-aware responses"
+    )
 
 class ValidationResponse(BaseModel):
 
