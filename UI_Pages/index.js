@@ -145,56 +145,93 @@ function addValidationMessage(result) {
     const contentEl = document.createElement('div');
     contentEl.className = 'message-content';
 
-    const scoreColor = getScoreColor(result.score);
-    const scoreClass = scoreColor === 'excellent' ? 'excellent' : 
-                       scoreColor === 'good' ? 'good' : 
-                       scoreColor === 'moderate' ? 'moderate' : 'poor';
+    // Check if response is properly formatted with all required fields
+    const hasProperFormat = result.title && result.score !== undefined && result.verdict && result.summary;
 
-    contentEl.innerHTML = `
-        <div class="validation-result">
-            <div class="result-header">
-                <div class="score-badge">
-                    <div class="score-circle ${scoreClass}">
-                        ${result.score.toFixed(1)}
+    if (hasProperFormat) {
+        // Formatted response with insights
+        const scoreColor = getScoreColor(result.score);
+        const scoreClass = scoreColor === 'excellent' ? 'excellent' : 
+                           scoreColor === 'good' ? 'good' : 
+                           scoreColor === 'moderate' ? 'moderate' : 'poor';
+
+        contentEl.innerHTML = `
+            <div class="validation-result">
+                <div class="result-title">${result.title}</div>
+                
+                <div class="result-header">
+                    <div class="score-badge">
+                        <div class="score-circle ${scoreClass}">
+                            ${result.score.toFixed(1)}
+                        </div>
+                    </div>
+                    <div class="result-verdict">
+                        <div class="verdict-label">Verdict</div>
+                        <div class="verdict-text">${result.verdict || 'Assessment'}</div>
                     </div>
                 </div>
-                <div class="verdict">${result.verdict || 'Assessment'}</div>
-            </div>
 
-            <div class="result-grid">
-                <div class="result-item">
-                    <div class="result-item-label">Market</div>
-                    <div class="result-item-value">${result.market}</div>
+                <div class="result-summary-box">
+                    <div class="result-summary-label">Summary</div>
+                    <div class="result-item-value">${result.summary}</div>
                 </div>
-                <div class="result-item">
-                    <div class="result-item-label">Risk</div>
-                    <div class="result-item-value">${result.risk}</div>
-                </div>
-                <div class="result-item">
-                    <div class="result-item-label">Opportunities</div>
-                    <div class="result-item-value">${result.opportunities || 'N/A'}</div>
-                </div>
-                <div class="result-item">
-                    <div class="result-item-label">Competition</div>
-                    <div class="result-item-value">${result.competition}</div>
-                </div>
-            </div>
 
-            <div class="result-item" style="border-left-color: #10b981;">
-                <div class="result-item-label">First Step</div>
-                <div class="result-item-value">${result.first_step}</div>
-            </div>
+                <button class="details-toggle" onclick="toggleDetails(this)">Show Details</button>
 
-            <div class="result-summary" style="margin-top: 12px;">
-                <div class="result-summary-label">Summary</div>
-                <div class="result-item-value">${result.summary}</div>
+                <div class="details-section hidden">
+                    <div class="result-grid">
+                        <div class="result-item">
+                            <div class="result-item-label">Market Opportunity</div>
+                            <div class="result-item-value">${result.market}</div>
+                        </div>
+                        <div class="result-item">
+                            <div class="result-item-label">Key Risk</div>
+                            <div class="result-item-value">${result.risk}</div>
+                        </div>
+                        <div class="result-item">
+                            <div class="result-item-label">Opportunities</div>
+                            <div class="result-item-value">${result.opportunities || 'N/A'}</div>
+                        </div>
+                        <div class="result-item">
+                            <div class="result-item-label">Competition</div>
+                            <div class="result-item-value">${result.competition}</div>
+                        </div>
+                    </div>
+
+                    <div class="result-item" style="border-left-color: #4CAF50; margin-top: 12px;">
+                        <div class="result-item-label">First Step</div>
+                        <div class="result-item-value">${result.first_step}</div>
+                    </div>
+                </div>
             </div>
-        </div>
-    `;
+        `;
+    } else {
+        // Fallback for incomplete responses
+        contentEl.innerHTML = `
+            <div class="validation-result plain">
+                <div class="plain-response">
+                    <p>${typeof result === 'string' ? result : JSON.stringify(result, null, 2)}</p>
+                </div>
+            </div>
+        `;
+    }
 
     messageEl.appendChild(contentEl);
     messagesContainer.appendChild(messageEl);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function toggleDetails(button) {
+    const detailsSection = button.nextElementSibling;
+    const isHidden = detailsSection.classList.contains('hidden');
+    
+    if (isHidden) {
+        detailsSection.classList.remove('hidden');
+        button.textContent = 'Hide Details';
+    } else {
+        detailsSection.classList.add('hidden');
+        button.textContent = 'Show Details';
+    }
 }
 
 function showSpinner(show) {
@@ -226,10 +263,10 @@ async function checkHealth() {
         const response = await fetch(`${API_BASE_URL}/health`);
         const data = await response.json();
 
-        if (data.redis_status === 'Connected') {
-            redisStatusEl.textContent = 'Redis: Connected';
+        if (data.conversation_status === 'Connected') {
+            redisStatusEl.textContent = 'Memory: Connected';
         } else {
-            redisStatusEl.textContent = 'Redis: Disconnected';
+            redisStatusEl.textContent = 'Memory: Disconnected';
         }
     } catch (error) {
         console.error('Health check failed:', error);
@@ -252,13 +289,16 @@ async function loadConversations() {
         }
 
         conversationsContainer.innerHTML = '';
-        data.conversations.forEach(conversationId => {
+        data.conversations.forEach(conv => {
+            const conversationId = conv.id || conv;
+            const title = conv.title || conversationId.substring(0, 8) + '...';
+            
             const item = document.createElement('div');
             item.className = 'conversation-item';
             
             const textSpan = document.createElement('span');
             textSpan.className = 'conversation-item-text';
-            textSpan.textContent = conversationId.substring(0, 8) + '...';
+            textSpan.textContent = title;
             textSpan.title = conversationId;
             textSpan.style.cursor = 'pointer';
             textSpan.onclick = () => loadConversationHistory(conversationId);

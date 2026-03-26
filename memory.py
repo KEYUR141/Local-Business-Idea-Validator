@@ -12,14 +12,15 @@ class InMemoryConversationManager:
         self.conversations = {}
         logger.info("In-Memory Conversation Manager initialized")
     
-    def create_conversation(self, conversation_id: str) -> bool:
+    def create_conversation(self, conversation_id: str, title: str = None) -> bool:
         try:
             self.conversations[conversation_id] = {
                 "created_at": datetime.now().isoformat(),
+                "title": title or "Untitled",
                 "message_count": 0,
                 "messages": []
             }
-            logger.info(f"Created new conversation with ID: {conversation_id}")
+            logger.info(f"Created new conversation with ID: {conversation_id}, Title: {title}")
             return True
         except Exception as e:
             logger.error(f"Failed to create conversation: {e}")
@@ -78,6 +79,21 @@ class InMemoryConversationManager:
             return sorted(conversation_ids, reverse=True)
         except Exception as e:
             logger.error(f"Failed to retrieve all conversations: {e}")
+            return []
+    
+    def get_conversations_with_titles(self) -> List[Dict]:
+        try:
+            conversations = []
+            for conv_id in sorted(self.conversations.keys(), reverse=True):
+                conv_data = self.conversations[conv_id]
+                conversations.append({
+                    "id": conv_id,
+                    "title": conv_data.get("title", "Untitled"),
+                    "created_at": conv_data.get("created_at")
+                })
+            return conversations
+        except Exception as e:
+            logger.error(f"Failed to retrieve conversations with titles: {e}")
             return []
     
     def get_full_history(self, conversation_id: str) -> List[Dict]:

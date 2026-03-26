@@ -421,7 +421,8 @@ For issues or questions:
 6. ⏳ Generate PowerPoint slides
 7. ⏳ Submit to GenAI Academy
 
-
+#URL
+https://business-idea-validator-du6h2ejera-el.a.run.app
 
 **output**
 	

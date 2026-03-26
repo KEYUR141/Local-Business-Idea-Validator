@@ -118,7 +118,7 @@ async def list_conversations():
         raise HTTPException(status_code=500, detail="Conversation Manager not available")
     
     try:
-        conversations = conversation_manager.get_all_conversations()
+        conversations = conversation_manager.get_conversations_with_titles()
         return JSONResponse({
             "conversations": conversations
         })
@@ -147,8 +147,14 @@ async def chat_message(request: BusinessIdeaInput) -> ValidationResponse:
 
         validated_result = agent.validate_idea(idea=request.idea, conversation_id = request.conversation_id)
 
+        # Update conversation title with the validated title (first message only)
+        conv_data = conversation_manager.conversations.get(request.conversation_id, {})
+        if conv_data.get("title") == "Untitled":
+            conversation_manager.conversations[request.conversation_id]["title"] = validated_result.title
+
         # Store validation result
         conversation_manager.add_message(request.conversation_id, "assistant", json.dumps({
+            "title": validated_result.title,
             "score": validated_result.score,
             "verdict": validated_result.verdict,
             "market": validated_result.market,

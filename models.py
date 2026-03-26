@@ -61,3 +61,13 @@ class ValidationResponse(BaseModel):
         ...,
         description="A concise summary of the overall assessment of the business idea, highlighting its strengths, weaknesses, and potential for success."
     )
+
+    title: str = Field(
+        ...,
+        description="A one-line catchy title/label for the business idea for easy reference in conversation list (max 50 characters)."
+    )
+
+    Non_Structured_Response: Optional[str] = Field(
+        None,
+        description="An optional field for any additional unstructured feedback or insights that do not fit into the structured fields above."
+    )
