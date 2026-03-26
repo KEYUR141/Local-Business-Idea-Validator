@@ -16,7 +16,7 @@ steps:
       - 'gcr.io/$PROJECT_ID/business-idea-validator:latest'
 
   # Deploy to Cloud Run
-  - name: 'gcr.io/cloud-builders/gke-deploy'
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     args:
       - 'run'
       - '--filename=.'

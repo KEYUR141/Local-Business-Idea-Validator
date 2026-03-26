@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = window.location.origin;
 let currentConversationId = null;
 
 const messagesContainer = document.getElementById('messages-container');
