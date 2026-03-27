@@ -17,6 +17,9 @@ class InMemoryConversationManager:
             self.conversations[conversation_id] = {
                 "created_at": datetime.now().isoformat(),
                 "title": title or "Untitled",
+                "has_analysis": False,   # ← has a full JSON validation been done?
+                # "original_idea": None,   # ← store the first idea as anchor
+                # "last_score": None,
                 "message_count": 0,
                 "messages": []
             }
@@ -105,3 +108,16 @@ class InMemoryConversationManager:
         except Exception as e:
             logger.error(f"Failed to retrieve full history: {e}")
             return []
+    
+    def get_conversation_state(self, conversation_id:str) -> Dict:
+        try:
+            if conversation_id not in self.conversations:
+                logger.warning(f"Conversation ID {conversation_id} not found when getting state")
+                return {}
+            
+            return self.conversations[conversation_id]
+        
+        except Exception as e:
+            logger.error(f"Failed to retrieve conversation state: {e}")
+            return {}
+                

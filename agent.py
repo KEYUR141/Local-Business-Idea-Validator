@@ -24,11 +24,10 @@ class BusinessIdeaValidatorAgent:
         self.conversation_manager = ConversationManager()
 
     
-    def build_context_prompt(self,conversation_id:str, idea:str) -> str:
+    def build_context_prompt(self,conversation_id:str, idea:str, input_type: str) -> str:
         try:
             context_str= ""
-            is_followup = "?" in idea or len(idea) < 30
-
+           
             if conversation_id and self.conversation_manager:
                 history = self.conversation_manager.get_last_messages(conversation_id, count=8)
 
@@ -38,95 +37,129 @@ class BusinessIdeaValidatorAgent:
                         role = "User" if msg["role"] == "user" else "Assistant"
                         context_str += f"{role}:{msg['content']}\n"
                     context_str +="\n" 
+            context_str += f"New Idea: {idea}\n"
+
+            prompt = """
+            You are VentureCheck, a senior business consultant specializing in Indian 
+            startup ecosystems with 20 years of experience across Tier 1, Tier 2, and 
+            Tier 3 markets. You are known for being honest, practical, and grounded — 
+            you never hype an idea and never crush one unfairly.
             
-            if is_followup:
-                # Follow-up question: conversational response with JSON fallback
-                prompt = f"""You are a business consultant helping refine startup ideas for the Indian market.
+            Your analysis always considers:
+            
+            TONE & BEHAVIOUR:
+            - Be direct and honest. Never inflate scores to please the user.
+            - Use plain language. Avoid jargon unless explaining it.
+            - Be encouraging but realistic — point out real risks clearly.
+            - If an idea is weak, say so with respect and suggest improvements.
+            
+            BUSINESS DIMENSIONS YOU ALWAYS EVALUATE:
+            1. Market Potential — Size, growth rate, demand signals, TAM in India
+            2. Feasibility — Technical, operational, financial practicality
+            3. Planning Depth — Is this idea thought through or just a concept?
+            4. Competition — Direct competitors, indirect substitutes, entry barriers
+            5. Financial Viability — Revenue model clarity, cost structure, path to profit
+            6. Innovation — Uniqueness vs existing solutions, differentiation factor
+            7. Risk Profile — Regulatory, execution, market, financial risks
+            8. Scalability — Can this grow beyond the initial market?
+            
+            GEOGRAPHICAL CONSIDERATION (CRITICAL):
+            - Always evaluate through the lens of the Indian market
+            - Consider Tier 1 cities (Metro): High competition, high purchasing power
+            - Consider Tier 2 cities: Growing digital adoption, price-sensitive, underserved
+            - Consider Tier 3 / Rural: Low infrastructure, MSME-friendly govt schemes, 
+            huge untapped potential but logistical challenges
+            - Note APAC relevance where applicable (Southeast Asia, South Asia parallels)
+            - Factor in: UPI ecosystem, Jio-driven internet penetration, GST compliance,
+            MSME government schemes, startup India initiatives
+            """
 
-{context_str}
+            if input_type == "new_idea":
+                return f"""
+                {prompt}
+                
+                {f"CONVERSATION HISTORY (for context only):{context_str}" if context_str else ""}
+                
+                TASK: Analyze the following business idea and return a structured JSON report.
+                
+                BUSINESS IDEA: {idea}
+                
+                SCORING GUIDE:
+                - 9.0-10.0: Exceptional — rare, must have massive market + clear moat
+                - 7.0-8.9:  Strong/Promising — solid fundamentals, addressable risks
+                - 5.0-6.9:  Moderate — viable but needs significant work or pivot
+                - 3.0-4.9:  Risky — major structural problems, proceed with caution
+                - 0.0-2.9:  Avoid — fundamental flaws, market doesn't support this
+                
+                Return ONLY a valid JSON object with EXACTLY these fields:
+                {{
+                    "title": "<catchy one-line title for this idea, max 50 chars>",
+                    "score": <realistic float 0.0-10.0 with one decimal>,
+                    "verdict": "<exactly one of: Strong | Promising | Risky | Needs Work | Avoid>",
+                    "market": "<who exactly buys this, which tier cities, what size, 2 sentences>",
+                    "risk": "<the single most critical risk that could kill this business, 2 sentences>",
+                    "opportunities": "<strongest tailwind or market gap this idea can exploit, 2 sentences>",
+                    "competition": "<who already does this, how crowded, what differentiates this idea, 2 sentences>",
+                    "first_step": "<most important concrete action doable THIS WEEK to validate, 1-2 sentences>",
+                    "summary": "<honest 2-3 sentence overall verdict a non-technical founder can act on>"
+                }}
+                
+                STRICT RULES:
+                - Return ONLY the JSON object. Zero text before or after.
+                - Score must be a float with one decimal e.g. 7.2 not 7
+                - Never give 10.0 — no idea is perfect
+                - Summary must NOT end with generic phrases like 
+                'if executed well' or 'with the right strategy'
+                - Risk must be honest — do not soften real problems
+                """
 
-The user is asking: {idea}
-
-Based on the previous conversation, provide helpful, natural advice. Be conversational and insightful. Keep it 2-3 sentences.
-
-Respond naturally - do NOT use JSON format. Just write your response directly."""
-            else:
-                # New business idea: Full JSON validation response
-                prompt = f"""
-            {context_str}
-
-            You are an experienced business consultant evaluating startup ideas in India. Analyze based on:
-                1. Market Potential: Assess the size and growth potential of the target market.
-                2. Feasibility: Evaluate the practicality of implementing the business idea, including technical and operational challenges.
-                3. Competitive Landscape: Analyze existing competitors and potential barriers to entry.
-                4. Financial Viability: Consider the revenue model, cost structure, and potential profitability.
-                5. Innovation: Determine how unique and innovative the idea is compared to existing solutions.
-                6. Geographical Relevance: Assess how well the idea fits the specific needs and conditions of the Indian market, especially in tier 2 and tier 3 cities.
-
-            BUSINESS IDEA: {idea}
-
-            Return your analysis as a valid JSON object with EXACTLY these fields:
-            {{
-            "title": "<catchy one-line title for this business idea, max 50 chars>",
-            "score": <number between 0.0 and 10.0>,
-            "verdict": "<Options: 'Strong', 'Promising', 'Risky', 'Needs Work', 'Avoid'>",
-            "market": "<specific target market description, 1-2 sentences>",
-            "risk": "<single most critical risk or challenge, 1-2 sentences>",
-            "opportunities": "<potential opportunities and advantages, 1-2 sentences>",
-            "competition": "<honest competitive landscape assessment, 1-2 sentences>",
-            "first_step": "<concrete, actionable first step doable this week, 1-2 sentences>",
-            "summary": "<overall assessment in 2-3 plain sentences>"
-            }}
-
-            CRITICAL RULES:
-            1. Return ONLY valid JSON. No markdown, no explanations, no text before or after.
-            2. Score should be realistic (0-10), not inflated.
-            3. Risk section must be honest about challenges.
-            4. Summary must be readable to a non-technical person.
-
-            Return the JSON object only."""
-
-            return prompt
-        
+            else:  # followup
+                return f"""
+                {prompt}
+                
+                CONVERSATION HISTORY:
+                {context_str}
+                
+                TASK: The user is asking a follow-up question about their business idea.
+                Answer as a consultant continuing the conversation — not as a validator.
+                
+                USER QUESTION: {idea}
+                
+                RESPONSE RULES:
+                - Be conversational, specific, and grounded
+                - Reference the specific idea from history — don't be generic
+                - 2-4 sentences max — be concise
+                - Do NOT re-validate the whole idea
+                - Do NOT use JSON or bullet points
+                - Do NOT repeat the question back
+                - End with one concrete suggestion or question to push thinking forward
+                """
+            
         except Exception as e:
-            logger.error(f"Error Building Prompt: {e}")
-            raise ValueError("Failed to build prompt for validation")
-        
+            logger.error(f"Failed to build prompt: {e}")
+            raise ValueError(f"Prompt construction error: {str(e)}")
+                    
 
     def validate_idea(self, idea: str, conversation_id:str =None) -> ValidationResponse:
 
         try:
-            logger.info(f"Validating idea: {idea[:50]}...")
-            is_followup = "?" in idea or len(idea) < 30
-            prompt = self.build_context_prompt(conversation_id, idea)
+            get_conversation_state = self.conversation_manager.get_conversation_state(conversation_id)
+            input_type = "followup" if get_conversation_state.get("has_analysis", False) else "new_idea"
+            prompt = self.build_context_prompt(conversation_id, idea, input_type)
             response = self.model.generate_content(prompt)
+            logger.info(f"Raw response received: {response.text[:200]}...")
+
             text = response.text.strip()
             
-            if is_followup:
-                # Follow-up question: return conversational response as plain text
-                # Create a minimal ValidationResponse for storage
-                validation = ValidationResponse(
-                    title="Follow-up Discussion",
-                    score=7.5,
-                    verdict="Promising",
-                    market="Context dependent",
-                    risk="Under discussion",
-                    opportunities="Being explored",
-                    competition="See history",
-                    first_step="Implement suggestions",
-                    summary=text
-                )
-            else:
-                # New idea: Parse JSON response
-                # Remove markdown wrapping if present
-                if "```json" in text:
-                    text = text.split("```json")[1].split("```")[0]
-                elif "```" in text:
-                    text = text.split("```")[1].split("```")[0]
-                
-                # Parse JSON
-                data = json.loads(text.strip())
-                validation = ValidationResponse(**data)
+            # Remove markdown wrapping if present
+            if "```json" in text:
+                text = text.split("```json")[1].split("```")[0]
+            elif "```" in text:
+                text = text.split("```")[1].split("```")[0]
+            
+            # Parse JSON
+            data = json.loads(text.strip())
+            validation = ValidationResponse(**data)
 
             if conversation_id and self.conversation_manager:
                 self.conversation_manager.add_message(conversation_id, role = "user", context = idea)

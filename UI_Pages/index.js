@@ -85,9 +85,44 @@ async function sendMessage(event) {
         return;
     }
 
-    if (!currentConversationId) {
-        showToast('Please start a new conversation first', 'error');
+    if (sendBtn.disabled) {
         return;
+    }
+
+    // Auto-create conversation if none exists
+    if (!currentConversationId) {
+        sendBtn.disabled = true;
+        showSpinner(true);
+        try {
+            const response = await fetch(`${API_BASE_URL}/conversation/start`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (!response.ok) throw new Error('Failed to start conversation');
+            const data = await response.json();
+            currentConversationId = data.Conversation_Id;
+            conversationIdDisplay.textContent = `ID: ${currentConversationId.substring(0, 8)}...`;
+            messagesContainer.innerHTML = `
+                <div class="welcome-message">
+                    <h3>Welcome</h3>
+                    <p>Describe your business idea. Analysis includes:</p>
+                    <ul>
+                        <li>Viability Score (0-10)</li>
+                        <li>Market Opportunity</li>
+                        <li>Risk Assessment</li>
+                        <li>Growth Potential</li>
+                        <li>Competitive Analysis</li>
+                        <li>Action Steps</li>
+                    </ul>
+                </div>
+            `;
+            showSpinner(false);
+        } catch (error) {
+            console.error('Error starting conversation:', error);
+            showToast('Failed to start conversation', 'error');
+            sendBtn.disabled = false;
+            return;
+        }
     }
 
     addMessage(idea, 'user');
@@ -114,6 +149,7 @@ async function sendMessage(event) {
 
         const result = await response.json();
         addValidationMessage(result);
+        loadConversations(); // Refresh sidebar with new title
         showToast('Analysis complete', 'success');
     } catch (error) {
         console.error('Error sending message:', error);
