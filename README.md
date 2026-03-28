@@ -143,16 +143,6 @@ curl -X POST https://business-idea-validator-du6h2ejera-el.a.run.app/chat/messag
 
 ## Screenshots
 
-> Add screenshots of the chat interface here
-
-<!-- 
-  Place your screenshots in this section.
-  Recommended: 
-  1. Welcome screen
-  2. A full analysis card (score, verdict, summary visible)
-  3. A follow-up conversation exchange
-  4. Sidebar with labeled conversation history
--->
 
 ---
 
@@ -202,13 +192,4 @@ gcloud run deploy business-idea-validator --source . --platform managed --region
 
 ---
 
-## Submission Context
 
-Built for **Google GenAI Academy Cohort 1 — APAC Edition, Track 1: Build and Deploy AI Agents**.
-
-Track 1 criteria met:
-- Implemented using Google ADK with `LlmAgent` and `Runner`
-- Gemini 2.5 Flash as the inference model
-- Single clearly defined task: business idea validation
-- Callable via HTTP endpoint on Cloud Run
-- Returns structured valid responses for any input
