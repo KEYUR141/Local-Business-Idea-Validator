@@ -145,7 +145,12 @@ async def chat_message(request: BusinessIdeaInput) -> ValidationResponse:
         # Store user message
         conversation_manager.add_message(request.conversation_id, "user", request.idea)
 
-        validated_result = agent.validate_idea(idea=request.idea, conversation_id = request.conversation_id)
+        # Get input_type from request, or auto-detect if not provided
+        input_type = request.input_type
+        if not input_type:
+            input_type = "new_idea" if ("?" not in request.idea and len(request.idea) >= 30) else "followup"
+        
+        validated_result = agent.validate_idea(idea=request.idea, conversation_id=request.conversation_id, input_type=input_type)
 
         # Update conversation title with the validated title (first message only)
         conv_data = conversation_manager.conversations.get(request.conversation_id, {})
@@ -235,6 +240,17 @@ async def root():
             "get_history": "GET /chat/history/{conversation_id}"
         }
     })
+
+@app.get('/list_models/')
+async def list_available_models():
+    try:
+        models = agent.list_models()
+        return JSONResponse({
+            "available_models": models
+        })
+    except Exception as e:
+        logger.error(f"Failed to list available models: {e}")
+        raise HTTPException(status_code=500, detail="Failed to list available models")
 
 
 if __name__ == "__main__":

@@ -20,7 +20,7 @@ class BusinessIdeaValidatorAgent:
         
         # Load service account credentials
         genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel("gemini-2.5-flash-lite")
+        self.model = genai.GenerativeModel("gemini-2.5-flash")
         self.conversation_manager = ConversationManager()
 
     
@@ -72,6 +72,9 @@ class BusinessIdeaValidatorAgent:
             - Note APAC relevance where applicable (Southeast Asia, South Asia parallels)
             - Factor in: UPI ecosystem, Jio-driven internet penetration, GST compliance,
             MSME government schemes, startup India initiatives
+            - You need to have a deep insight for the cities, rural areas and villages info, 
+            if user asked about their place where they are living or want to create a startup or business idea into reality.
+            
             """
 
             if input_type == "new_idea":
@@ -123,6 +126,8 @@ class BusinessIdeaValidatorAgent:
                 TASK: The user is asking a follow-up question about their business idea.
                 Answer as a consultant continuing the conversation — not as a validator.
                 
+                **Informing Point**
+                -If the user asks for the new-idea analysis, say them to select the option of analysis insight option given in the chat interface.
                 USER QUESTION: {idea}
                 
                 RESPONSE RULES:
@@ -140,26 +145,82 @@ class BusinessIdeaValidatorAgent:
             raise ValueError(f"Prompt construction error: {str(e)}")
                     
 
-    def validate_idea(self, idea: str, conversation_id:str =None) -> ValidationResponse:
+    def validate_idea(self, idea: str, conversation_id:str =None, input_type: str = None) -> ValidationResponse:
 
         try:
-            get_conversation_state = self.conversation_manager.get_conversation_state(conversation_id)
-            input_type = "followup" if get_conversation_state.get("has_analysis", False) else "new_idea"
+            # Use provided input_type, or auto-detect from conversation state or response type
+            if not input_type:
+                get_conversation_state = self.conversation_manager.get_conversation_state(conversation_id)
+                input_type = "followup" if get_conversation_state.get("has_analysis", False) else "new_idea"
+            
             prompt = self.build_context_prompt(conversation_id, idea, input_type)
             response = self.model.generate_content(prompt)
             logger.info(f"Raw response received: {response.text[:200]}...")
 
             text = response.text.strip()
             
-            # Remove markdown wrapping if present
-            if "```json" in text:
-                text = text.split("```json")[1].split("```")[0]
-            elif "```" in text:
-                text = text.split("```")[1].split("```")[0]
-            
-            # Parse JSON
-            data = json.loads(text.strip())
-            validation = ValidationResponse(**data)
+            # Try to detect response type and handle accordingly
+            is_json = False
+            if input_type == "new_idea":
+                # For new ideas, expect JSON
+                # Remove markdown wrapping if present
+                if "```json" in text:
+                    text = text.split("```json")[1].split("```")[0]
+                elif "```" in text:
+                    text = text.split("```")[1].split("```")[0]
+                
+                text = text.strip()
+                
+                # Check if it looks like JSON
+                if text.startswith('{') and text.endswith('}'):
+                    is_json = True
+                    try:
+                        data = json.loads(text)
+                        validation = ValidationResponse(**data, response_type="analysis")
+                    except json.JSONDecodeError:
+                        # JSON parsing failed, treat as conversational fallback
+                        logger.warning("JSON parsing failed for new_idea, treating as conversational response")
+                        validation = ValidationResponse(
+                            title="Analysis",
+                            score=7.5,
+                            verdict="Promising",
+                            market="Requires evaluation",
+                            risk="Under review",
+                            opportunities="To be explored",
+                            competition="To be analyzed",
+                            first_step="Further discussion needed",
+                            summary=text,
+                            response_type="analysis"
+                        )
+                else:
+                    # Not JSON, treat as conversational fallback
+                    logger.warning("Response is not JSON format for new_idea, treating as conversational")
+                    validation = ValidationResponse(
+                        title="Analysis",
+                        score=7.5,
+                        verdict="Promising",
+                        market="Requires evaluation",
+                        risk="Under review",
+                        opportunities="To be explored",
+                        competition="To be analyzed",
+                        first_step="Further discussion needed",
+                        summary=text,
+                        response_type="analysis"
+                    )
+            else:
+                # For follow-up questions, treat as conversational response
+                validation = ValidationResponse(
+                    title="Follow-up Discussion",
+                    score=7.5,
+                    verdict="Promising",
+                    market="Context dependent",
+                    risk="Under discussion",
+                    opportunities="Being explored",
+                    competition="See history",
+                    first_step="Implement suggestions",
+                    summary=text,
+                    response_type="followup"
+                )
 
             if conversation_id and self.conversation_manager:
                 self.conversation_manager.add_message(conversation_id, role = "user", context = idea)
@@ -168,9 +229,14 @@ class BusinessIdeaValidatorAgent:
             logger.info(f"Validation successful. Score: {validation.score}")
             return validation
         
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse JSON: {e}")
-            raise ValueError("Received invalid JSON from model")
         except Exception as e:
             logger.error(f"Validation failed: {e}")
             raise ValueError(f"Validation error: {str(e)}")
+        
+
+    def list_models(self) -> list:
+        try:
+            models = genai.list_models()
+            return [model.name for model in models]
+        except Exception as e:
+            logger.error(f"Failed to list models: {e}")

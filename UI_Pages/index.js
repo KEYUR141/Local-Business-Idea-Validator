@@ -9,6 +9,7 @@ const spinner = document.getElementById('loading-spinner');
 const toast = document.getElementById('toast');
 const conversationIdDisplay = document.getElementById('conversation-id-display');
 const redisStatusEl = document.getElementById('redis-status');
+const analysisInsightToggle = document.getElementById('analysis-insight-toggle');
 
 chatForm.addEventListener('submit', sendMessage);
 ideaInput.addEventListener('keydown', (e) => {
@@ -133,7 +134,8 @@ async function sendMessage(event) {
     try {
         const payload = {
             idea: idea,
-            conversation_id: currentConversationId
+            conversation_id: currentConversationId,
+            input_type: analysisInsightToggle.checked ? "new_idea" : "followup"
         };
 
         const response = await fetch(`${API_BASE_URL}/chat/message`, {
@@ -181,10 +183,10 @@ function addValidationMessage(result) {
     const contentEl = document.createElement('div');
     contentEl.className = 'message-content';
 
-    // Check if response is properly formatted with all required fields
-    const hasProperFormat = result.title && result.score !== undefined && result.verdict && result.summary;
+    // Check response type: 'analysis' for structured card, 'followup' for plain text
+    const isAnalysis = result.response_type === 'analysis' || (result.response_type !== 'followup' && result.title && result.score !== undefined && result.verdict && result.summary);
 
-    if (hasProperFormat) {
+    if (isAnalysis) {
         // Formatted response with insights
         const scoreColor = getScoreColor(result.score);
         const scoreClass = scoreColor === 'excellent' ? 'excellent' : 
@@ -242,11 +244,11 @@ function addValidationMessage(result) {
             </div>
         `;
     } else {
-        // Fallback for incomplete responses
+        // Plain conversational response
         contentEl.innerHTML = `
             <div class="validation-result plain">
                 <div class="plain-response">
-                    <p>${typeof result === 'string' ? result : JSON.stringify(result, null, 2)}</p>
+                    <p>${result.summary}</p>
                 </div>
             </div>
         `;

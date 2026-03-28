@@ -17,9 +17,6 @@ class InMemoryConversationManager:
             self.conversations[conversation_id] = {
                 "created_at": datetime.now().isoformat(),
                 "title": title or "Untitled",
-                "has_analysis": False,   # ← has a full JSON validation been done?
-                # "original_idea": None,   # ← store the first idea as anchor
-                # "last_score": None,
                 "message_count": 0,
                 "messages": []
             }

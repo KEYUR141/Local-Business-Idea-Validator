@@ -15,6 +15,10 @@ class BusinessIdeaInput(BaseModel):
         None,  # ← Must be Optional[str] with default None
         description="Optional conversation ID for context-aware responses"
     )
+    input_type: Optional[str] = Field(
+        None,
+        description="Type of input: 'new_idea' for full analysis, 'followup' for conversational response"
+    )
 
 class ValidationResponse(BaseModel):
 
@@ -70,4 +74,9 @@ class ValidationResponse(BaseModel):
     Non_Structured_Response: Optional[str] = Field(
         None,
         description="An optional field for any additional unstructured feedback or insights that do not fit into the structured fields above."
+    )
+
+    response_type: Optional[str] = Field(
+        "analysis",
+        description="Type of response: 'analysis' for structured validation, 'followup' for conversational response"
     )
