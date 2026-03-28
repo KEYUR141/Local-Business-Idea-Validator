@@ -18,6 +18,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application files
 COPY main.py .
 COPY agent.py .
+COPY adk_agent.py .
 COPY models.py .
 COPY memory.py .
 COPY UI_Pages/ ./UI_Pages/

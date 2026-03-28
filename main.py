@@ -53,9 +53,10 @@ except Exception as e:
 
 
 api_key = os.getenv("API_KEY")
-if not api_key:
-    logger.info("API_KEY not found in environment variables")
-    raise ValueError("API_KEY not found in environment variables")
+if api_key:
+    logger.info("API_KEY found in environment variables")
+else:
+    logger.info("API_KEY not found - ADK will use default authentication")
 
 agent = BusinessIdeaValidatorAgent(api_key=api_key)
 

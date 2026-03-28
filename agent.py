@@ -1,27 +1,26 @@
 
 import json
 import logging
-import requests
-from google.auth.transport.requests import Request
-from google.oauth2.service_account import Credentials
 from models import ValidationResponse
 import google.generativeai as genai
-# from redis_client import RedisConversationManager
 from memory import InMemoryConversationManager as ConversationManager
+
 logger = logging.getLogger(__name__)
 
 
 class BusinessIdeaValidatorAgent:
-    """Business Idea Validator using Google Gemini API with Service Account"""
+    """Business Idea Validator using Google Gemini API"""
     
-    def __init__(self, api_key: str):
-        """Initialize with service account credentials"""
-        logger.info("Initializing Gemini validator with service account")
+    def __init__(self, api_key: str = None):
+        """Initialize with Gemini API"""
+        logger.info("Initializing Business Idea Validator Agent")
         
-        # Load service account credentials
-        genai.configure(api_key=api_key)
+        if api_key:
+            genai.configure(api_key=api_key)
+        
         self.model = genai.GenerativeModel("gemini-2.5-flash")
         self.conversation_manager = ConversationManager()
+        logger.info("Agent initialized successfully")
 
     
     def build_context_prompt(self,conversation_id:str, idea:str, input_type: str) -> str:
@@ -154,6 +153,8 @@ class BusinessIdeaValidatorAgent:
                 input_type = "followup" if get_conversation_state.get("has_analysis", False) else "new_idea"
             
             prompt = self.build_context_prompt(conversation_id, idea, input_type)
+            
+            # Generate response using Gemini
             response = self.model.generate_content(prompt)
             logger.info(f"Raw response received: {response.text[:200]}...")
 
@@ -232,11 +233,3 @@ class BusinessIdeaValidatorAgent:
         except Exception as e:
             logger.error(f"Validation failed: {e}")
             raise ValueError(f"Validation error: {str(e)}")
-        
-
-    def list_models(self) -> list:
-        try:
-            models = genai.list_models()
-            return [model.name for model in models]
-        except Exception as e:
-            logger.error(f"Failed to list models: {e}")
