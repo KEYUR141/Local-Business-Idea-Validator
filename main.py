@@ -242,16 +242,16 @@ async def root():
         }
     })
 
-@app.get('/list_models/')
-async def list_available_models():
-    try:
-        models = agent.list_models()
-        return JSONResponse({
-            "available_models": models
-        })
-    except Exception as e:
-        logger.error(f"Failed to list available models: {e}")
-        raise HTTPException(status_code=500, detail="Failed to list available models")
+# @app.get('/list_models/')
+# async def list_available_models():
+#     try:
+#         models = agent.list_models()
+#         return JSONResponse({
+#             "available_models": models
+#         })
+#     except Exception as e:
+#         logger.error(f"Failed to list available models: {e}")
+#         raise HTTPException(status_code=500, detail="Failed to list available models")
 
 
 if __name__ == "__main__":
