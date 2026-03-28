@@ -111,6 +111,12 @@ Local-Business-Idea-Validator/
 | POST | `/validate` | Single validation without session memory |
 | GET | `/docs` | Swagger interactive API documentation |
 
+
+## URL of the Project Deployed on the cloud run
+- Note Same features are going to be implemnt in the project in few times
+- Url:- https://business-idea-validator-626133859913.asia-south1.run.app
+
+
 **Sample Request**
 
 ```bash
